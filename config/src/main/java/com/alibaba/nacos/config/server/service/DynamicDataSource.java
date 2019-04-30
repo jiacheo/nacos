@@ -15,13 +15,15 @@
  */
 package com.alibaba.nacos.config.server.service;
 
+import static com.alibaba.nacos.core.utils.SystemUtils.STANDALONE_MODE;
+
 import com.alibaba.nacos.config.server.utils.PropertyUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import java.io.IOException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-
-import static com.alibaba.nacos.core.utils.SystemUtils.STANDALONE_MODE;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * datasource adapter
@@ -29,31 +31,52 @@ import static com.alibaba.nacos.core.utils.SystemUtils.STANDALONE_MODE;
  * @author Nacos
  */
 @Component
-public class DynamicDataSource implements ApplicationContextAware {
+public class DynamicDataSource implements ApplicationContextAware, DataSourceService {
 
-    @Autowired
-    private PropertyUtil propertyUtil;
+    private DataSourceService selectedDatasource;
 
-    private ApplicationContext applicationContext;
-
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
-        this.applicationContext = applicationContext;
-    }
-
-    public ApplicationContext getApplicationContext() {
-        return applicationContext;
-    }
-
-    public DataSourceService getDataSource() {
-        DataSourceService dataSourceService = null;
-
-        if (STANDALONE_MODE && !propertyUtil.isStandaloneUseMysql()) {
-            dataSourceService = (DataSourceService)applicationContext.getBean("localDataSourceService");
+        //require PropertyUtil post construct
+        applicationContext.getBeansOfType(PropertyUtil.class);
+        if (STANDALONE_MODE && !PropertyUtil.isStandaloneUseMysql()) {
+            this.selectedDatasource = (DataSourceService)applicationContext.getBean("localDataSourceService");
         } else {
-            dataSourceService = (DataSourceService)applicationContext.getBean("basicDataSourceService");
+            this.selectedDatasource = (DataSourceService)applicationContext.getBean("basicDataSourceService");
         }
-
-        return dataSourceService;
     }
 
+    protected DataSourceService getDataSource() {
+        return this.selectedDatasource;
+    }
+
+    @Override
+    public void reload() throws IOException {
+        selectedDatasource.reload();
+    }
+
+    @Override
+    public boolean checkMasterWritable() {
+        return selectedDatasource.checkMasterWritable();
+    }
+
+    @Override
+    public JdbcTemplate getJdbcTemplate() {
+        return selectedDatasource.getJdbcTemplate();
+    }
+
+    @Override
+    public TransactionTemplate getTransactionTemplate() {
+        return selectedDatasource.getTransactionTemplate();
+    }
+
+    @Override
+    public String getCurrentDBUrl() {
+        return selectedDatasource.getCurrentDBUrl();
+    }
+
+    @Override
+    public String getHealth() {
+        return selectedDatasource.getHealth();
+    }
 }

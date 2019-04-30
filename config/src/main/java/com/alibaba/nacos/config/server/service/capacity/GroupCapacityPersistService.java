@@ -15,13 +15,23 @@
  */
 package com.alibaba.nacos.config.server.service.capacity;
 
+import static com.alibaba.nacos.config.server.utils.LogUtil.fatalLog;
+import static com.alibaba.nacos.core.utils.SystemUtils.STANDALONE_MODE;
+
 import com.alibaba.nacos.config.server.model.capacity.Capacity;
 import com.alibaba.nacos.config.server.model.capacity.GroupCapacity;
-import com.alibaba.nacos.config.server.service.DataSourceService;
 import com.alibaba.nacos.config.server.service.DynamicDataSource;
 import com.alibaba.nacos.config.server.utils.PropertyUtil;
 import com.alibaba.nacos.config.server.utils.TimeUtils;
 import com.google.common.collect.Lists;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
+import java.util.List;
+import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,13 +39,6 @@ import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Service;
-
-import javax.annotation.PostConstruct;
-import java.sql.*;
-import java.util.List;
-
-import static com.alibaba.nacos.core.utils.SystemUtils.STANDALONE_MODE;
-import static com.alibaba.nacos.config.server.utils.LogUtil.fatalLog;
 
 /**
  * Group Capacity Service
@@ -53,12 +56,10 @@ public class GroupCapacityPersistService {
 
     @Autowired
     private DynamicDataSource dynamicDataSource;
-    private DataSourceService dataSourceService;
 
     @PostConstruct
     public void init() {
-        this.dataSourceService = dynamicDataSource.getDataSource();
-        this.jdbcTemplate = dataSourceService.getJdbcTemplate();
+        this.jdbcTemplate = dynamicDataSource.getJdbcTemplate();
     }
 
     private static final class GroupCapacityRowMapper implements
